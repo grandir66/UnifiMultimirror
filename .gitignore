@@ -41,7 +41,7 @@ Thumbs.db
 .ssh_key
 config.json
 old_config.json
-generated/
+generated/*
 !generated/.gitkeep
 
 # Logs
