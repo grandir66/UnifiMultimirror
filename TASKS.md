@@ -18,5 +18,8 @@ fuori da questo repo, che è pubblico (vedi `config.json` e l'inventario di Zabb
       3 SW-LAB-02, 4 SW-LAB-03, 5 AP AC LR, 6-7 libere, 8 LECS (2,5 GbE), 9 SFP+ 1 libera, 10 SFP+ 2 uplink 10G
       verso la UCG. Firmware 7.6.11. Da decidere: sorgenti. Da chiarire: il LECS ha un indirizzo di gestione
       sulla stessa porta 8 (una porta di destinazione di solito non inoltra traffico normale). Servono le
-      credenziali SSH degli apparati del sito LAB (non sono nel vault); la TUI usa sempre l'utente `admin`.
+      credenziali SSH degli apparati del sito LAB (non sono nel vault). Dal 19/11 la TUI chiede anche l'utente.
+      **Riccardo, 19/11: sorgente solo l'uplink SFP+ 2** (porta 10). Comandi attesi: `no monitor session 1`,
+      `monitor session 1 destination interface 0/8`, `monitor session 1 source interface 0/10`,
+      `monitor session 1 mode` (nomi delle porte da confermare con `show interfaces status all`).
 - [ ] Da decidere: scelta dello switch all'avvio (oggi `config.json` ne ricorda uno solo).

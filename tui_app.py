@@ -78,10 +78,11 @@ class LoginScreen(ModalScreen):
     }
     """
     
-    def __init__(self, saved_ip: str = ""):
+    def __init__(self, saved_ip: str = "", saved_user: str = "admin"):
         super().__init__()
         self.saved_ip = saved_ip
-        self.result: Optional[Tuple[str, str]] = None
+        self.saved_user = saved_user or "admin"
+        self.result: Optional[Tuple[str, str, str]] = None
     
     def compose(self) -> ComposeResult:
         with Container(id="login-container"):
@@ -89,7 +90,9 @@ class LoginScreen(ModalScreen):
             yield Rule()
             yield Label("IP del dispositivo:", classes="login-label")
             yield Input(value=self.saved_ip, placeholder="192.168.1.1", id="ip-input", classes="login-input")
-            yield Label("Password (utente: admin):", classes="login-label")
+            yield Label("Utente SSH:", classes="login-label")
+            yield Input(value=self.saved_user, placeholder="admin", id="user-input", classes="login-input")
+            yield Label("Password:", classes="login-label")
             yield Input(placeholder="password", password=True, id="password-input", classes="login-input")
             yield Label("", id="login-error")
             with Horizontal(id="login-buttons"):
@@ -99,6 +102,7 @@ class LoginScreen(ModalScreen):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "btn-connect":
             ip = self.query_one("#ip-input", Input).value.strip()
+            user = self.query_one("#user-input", Input).value.strip() or "admin"
             password = self.query_one("#password-input", Input).value
             
             if not ip:
@@ -108,7 +112,7 @@ class LoginScreen(ModalScreen):
                 self.query_one("#login-error", Label).update("Password non valida")
                 return
             
-            self.result = (ip, password)
+            self.result = (ip, user, password)
             self.dismiss(self.result)
         
         elif event.button.id == "btn-cancel":
@@ -119,6 +123,8 @@ class LoginScreen(ModalScreen):
         if event.input.id == "password-input":
             self.query_one("#btn-connect", Button).press()
         elif event.input.id == "ip-input":
+            self.query_one("#user-input", Input).focus()
+        elif event.input.id == "user-input":
             self.query_one("#password-input", Input).focus()
     
     def action_cancel(self) -> None:
@@ -531,12 +537,14 @@ class PortMirroringApp(App):
     def _show_login_screen(self) -> None:
         """Show login screen."""
         saved_ip = ""
+        saved_user = "admin"
         if self.ssh_manager.config_exists():
             success, _ = self.ssh_manager.load_config()
             if success:
                 saved_ip = self.ssh_manager.hostname
+                saved_user = self.ssh_manager.username or "admin"
         
-        self.push_screen(LoginScreen(saved_ip), callback=self._on_login_result)
+        self.push_screen(LoginScreen(saved_ip, saved_user), callback=self._on_login_result)
     
     def _on_login_result(self, result: Optional[Tuple[str, str]]) -> None:
         """Handle login result."""
@@ -544,16 +552,16 @@ class PortMirroringApp(App):
             self.exit()
             return
         
-        ip, password = result
-        self._do_connect(ip, password)
+        ip, user, password = result
+        self._do_connect(ip, user, password)
     
     @work(exclusive=True, thread=True)
-    def _do_connect(self, ip: str, password: str) -> None:
+    def _do_connect(self, ip: str, user: str, password: str) -> None:
         """Connect to device (runs in worker thread)."""
         self.notify(f"Connessione a {ip}...", severity="information")
         
         # Save and load config
-        self.ssh_manager.create_config(ip, "admin", password, 22)
+        self.ssh_manager.create_config(ip, user, password, 22)
         success, msg = self.ssh_manager.load_config()
         
         if not success:
@@ -573,7 +581,7 @@ class PortMirroringApp(App):
         self.device_ip = ip
         
         # Update header (must be called from main thread)
-        self.call_from_thread(self._update_device_info, f"Connesso a {ip} (admin)")
+        self.call_from_thread(self._update_device_info, f"Connesso a {ip} ({user})")
         
         self.notify("Connesso! Caricamento configurazione...", severity="information")
         
@@ -753,7 +761,7 @@ class PortMirroringApp(App):
         paths = generator.generate_all(
             commands=commands,
             device_ip=self.device_ip,
-            username="admin",
+            username=self.ssh_manager.username or "admin",
             config=self.parser.config,
             description=f"Mirroring: {dest} <- {len(sources)} sources"
         )

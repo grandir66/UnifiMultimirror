@@ -9,4 +9,6 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/).
   switch rifiutava un comando. Ora legge gli errori della CLI e rilegge la configurazione;
   il successo arriva solo se destinazione, sorgenti e sessione attiva combaciano. La TUI
   ricarica comunque la tabella, così mostra lo stato vero.
+- La TUI chiede anche l'utente SSH (19/11/2026): era fisso `admin`, ma gli switch di un altro sito
+  possono avere un utente diverso (impostato nella console UniFi del sito).
 - README: avvio con `.venv` (la TUI non partiva dal vecchio `ssh_env/`, privo di textual).
