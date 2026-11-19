@@ -13,4 +13,10 @@ fuori da questo repo, che è pubblico (vedi `config.json` e l'inventario di Zabb
 - [ ] Enterprise: da fare quando sarà raggiungibile (oggi dietro la UCG).
       Riccardo, 19/11: pensare a una VPN fra le due reti; proposta in `DA-Infra/TASKS.md` (disegno del LAB).
       19/11: scelta la VPN WireGuard della UCG del LAB (server LAB-IT, creato); dettagli in `DA-Infra/TASKS.md`.
+      19/11: tunnel attivo, SSH dell'Enterprise raggiungibile. Riccardo: **destinazione porta 8 (LECS, l'NDR)**, si
+      fa via SSH/CLI con questo strumento, non dall'interfaccia UniFi. Porte (console, 19/11): 1 SW-LAB-01, 2 SW-LAB-05,
+      3 SW-LAB-02, 4 SW-LAB-03, 5 AP AC LR, 6-7 libere, 8 LECS (2,5 GbE), 9 SFP+ 1 libera, 10 SFP+ 2 uplink 10G
+      verso la UCG. Firmware 7.6.11. Da decidere: sorgenti. Da chiarire: il LECS ha un indirizzo di gestione
+      sulla stessa porta 8 (una porta di destinazione di solito non inoltra traffico normale). Servono le
+      credenziali SSH degli apparati del sito LAB (non sono nel vault); la TUI usa sempre l'utente `admin`.
 - [ ] Da decidere: scelta dello switch all'avvio (oggi `config.json` ne ricorda uno solo).
