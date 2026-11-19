@@ -39,9 +39,14 @@ Il controller UniFi supporta nativamente solo una singola porta in mirroring. Qu
 git clone https://github.com/tuousername/UnifiMultimirror.git
 cd UnifiMultimirror
 
-# Installa le dipendenze
-pip install -r requirements.txt
+# Ambiente e dipendenze
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python tui_app.py
 ```
+
+Dopo **Applica**, il tool rilegge la configurazione dello switch e conferma solo se
+destinazione, sorgenti e sessione attiva corrispondono; altrimenti mostra cosa non torna.
 
 ### Dipendenze
 

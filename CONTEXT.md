@@ -29,12 +29,15 @@ una riga `source interface` per porta, `monitor session 1 mode`.
 
 - **Il controller UniFi sovrascrive** la configurazione CLI al provisioning o al riavvio:
   dopo ogni provisioning va riapplicata (con gli script in `generated/`).
-- **«Applicato» non vuol dire applicato**: `apply_mirroring_config` risponde successo se non
-  c'è eccezione, senza leggere gli errori dello switch né rileggere la sessione monitor.
-- `ssh_env/` non ha `textual`/`rich`: la TUI non parte da lì, serve
-  `pip install -r requirements.txt` in un venv a parte.
+- **Dal 19/11 «Applica» verifica**: `apply_mirroring_config` legge gli errori della CLI per
+  ogni comando e poi rilegge `show running-config` (destinazione, sorgenti, `mode`); il
+  successo arriva solo se combaciano. Gli intervalli tipo `0/8-0/9` sono espansi. Non
+  provato su uno switch vero: se la CLI scrive le sorgenti in una forma diversa, la
+  verifica dà «fallita» e lo si vede nel messaggio.
+- Ambiente: `.venv/` (python 3.12, textual 8) per la TUI; `ssh_env/` è solo per il vecchio
+  `ssh_script.py`. La TUI con textual 8 arriva al login (prova del 19/11).
 - `config.json` + `.ssh_key` (git-ignored): password cifrata con chiave nello stesso posto,
-  è offuscamento. `old_config.json` (git-ignored) ha la password **in chiaro**: da togliere.
+  è offuscamento. `old_config.json` (password in chiaro) tolto il 19/11.
 - Host key SSH accettata senza verifica (`AutoAddPolicy`).
 - Repo pubblico: niente IP, nomi di clienti o script generati nei commit (`generated/*` è
   ignorato; storia controllata il 19/11, pulita).

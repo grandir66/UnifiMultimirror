@@ -784,13 +784,15 @@ class PortMirroringApp(App):
         
         success, output = self.ssh_manager.apply_mirroring_config(commands)
         
+        summary = output.splitlines()[0] if output else ""
         if success:
-            self.notify("Configurazione applicata!", severity="information")
+            self.notify(summary or "Configurazione applicata", severity="information")
             self.pending_dest = None
             self.pending_sources = []
-            self._load_config_sync()
         else:
-            self.notify(f"Errore: {output}", severity="error")
+            self.notify(summary or "Errore", severity="error", timeout=20)
+        # Ricarica sempre: la tabella deve mostrare cosa c'è davvero sullo switch.
+        self._load_config_sync()
     
     def _generate_commands(self, dest: str, sources: List[str]) -> List[str]:
         """Generate mirroring commands."""

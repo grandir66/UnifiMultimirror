@@ -423,7 +423,7 @@ class PortMirroringManager:
             if success:
                 self.console.print()
                 self.console.print(Panel(
-                    "[bold green]Configurazione applicata con successo![/bold green]",
+                    f"[bold green]{output.splitlines()[0]}[/bold green]",
                     box=box.DOUBLE,
                     style="green"
                 ))
@@ -441,7 +441,7 @@ class PortMirroringManager:
             else:
                 self.console.print()
                 self.console.print(Panel(
-                    f"[bold red]Errore durante l'applicazione[/bold red]\n\n{output}",
+                    f"[bold red]Configurazione NON confermata[/bold red]\n\n{output}",
                     box=box.ROUNDED,
                     style="red"
                 ))

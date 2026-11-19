@@ -308,35 +308,132 @@ class SSHManager:
         self._send_command("exit", wait_prompt=False)
         return True
     
+    # Righe con cui la CLI EdgeSwitch/UniFi rifiuta un comando.
+    _ERROR_MARKERS = ("% ", "invalid input", "error", "failed", "incomplete command",
+                      "unrecognized command", "not allowed")
+
+    @classmethod
+    def _find_cli_errors(cls, response: str, command: str) -> List[str]:
+        """Return the lines of a response that look like a CLI error."""
+        errors = []
+        for line in response.splitlines():
+            text = line.strip()
+            if not text or text == command.strip():
+                continue
+            low = text.lower()
+            if text.startswith("^") or any(m in low for m in cls._ERROR_MARKERS):
+                errors.append(text)
+        return errors
+
+    @staticmethod
+    def _expand_ports(spec: str) -> List[str]:
+        """'0/4' -> ['0/4']; '0/4-0/6' or '0/4-6' -> 0/4,0/5,0/6; comma lists too."""
+        ports: List[str] = []
+        for part in spec.replace(" ", "").split(","):
+            if not part:
+                continue
+            if "-" in part:
+                start, end = part.split("-", 1)
+                unit, first = start.split("/")
+                last = end.split("/")[-1]
+                ports.extend(f"{unit}/{n}" for n in range(int(first), int(last) + 1))
+            else:
+                ports.append(part)
+        return ports
+
+    def verify_mirroring(self, destination: str, sources: List[str],
+                         session_id: int = 1) -> Tuple[bool, str]:
+        """
+        Re-read the running-config and check that the monitor session matches.
+        Returns (ok, message). A read that fails is reported as not verified.
+        """
+        from config_parser import ConfigParser  # local: avoids a hard dependency at import
+
+        try:
+            running = self.get_running_config()
+        except Exception as e:
+            return False, f"Verifica non eseguita: lettura della configurazione fallita ({e})"
+        if "monitor" not in running and "interface" not in running:
+            return False, "Verifica non eseguita: la configurazione letta dallo switch è vuota o incompleta"
+
+        parser = ConfigParser()
+        parser.parse_running_config(running)
+        session = parser.config.monitor_sessions.get(session_id)
+        if session is None:
+            return False, f"Verifica fallita: sullo switch non c'è la monitor session {session_id}"
+
+        read_sources = set()
+        for spec in session.sources:
+            read_sources.update(self._expand_ports(spec))
+        wanted = set(sources)
+
+        problems = []
+        if session.destination != destination:
+            problems.append(f"destinazione letta {session.destination or '(nessuna)'}, attesa {destination}")
+        missing = sorted(wanted - read_sources)
+        extra = sorted(read_sources - wanted)
+        if missing:
+            problems.append("sorgenti mancanti: " + ", ".join(missing))
+        if extra:
+            problems.append("sorgenti in più: " + ", ".join(extra))
+        if session.mode != "enabled":
+            problems.append("la sessione non risulta attiva (manca 'monitor session %d mode')" % session_id)
+
+        if problems:
+            return False, "Verifica fallita: " + "; ".join(problems)
+        return True, f"Verificato sullo switch: {destination} <- {len(wanted)} sorgenti, sessione attiva"
+
     def apply_mirroring_config(self, commands: List[str]) -> Tuple[bool, str]:
         """
-        Apply mirroring configuration commands.
-        
+        Apply mirroring configuration commands, then verify them on the switch.
+
         Args:
             commands: List of commands (without cli/enable/config prefixes)
-        
+
         Returns:
-            (success, output)
+            (success, output). success is True only if the switch rejected no
+            command AND the running-config re-read afterwards matches. The first
+            line of output is always a one-line summary.
         """
+        destination = ""
+        sources: List[str] = []
+        for cmd in commands:
+            parts = cmd.split()
+            if cmd.startswith("monitor session") and "destination interface" in cmd:
+                destination = parts[-1]
+            elif cmd.startswith("monitor session") and "source interface" in cmd:
+                sources.append(parts[-1])
+
         try:
-            # Enter config mode
-            self.enter_config_mode()
+            if not self.enter_config_mode():
+                return False, "Errore: lo switch non è entrato in modalità configure"
             time.sleep(0.5)
-            
+
             output_lines = []
+            rejected = []
             for cmd in commands:
                 result = self._send_command(cmd)
                 output_lines.append(f">>> {cmd}")
                 if result.strip():
                     output_lines.append(result.strip())
-            
-            # Exit config mode
+                for err in self._find_cli_errors(result, cmd):
+                    rejected.append(f"{cmd}  ->  {err}")
+
             self.exit_config_mode()
-            
-            return True, "\n".join(output_lines)
-            
+            time.sleep(0.5)
         except Exception as e:
             return False, f"Errore durante l'applicazione: {e}"
+
+        log = "\n".join(output_lines)
+        if rejected:
+            summary = f"Lo switch ha rifiutato {len(rejected)} comandi"
+            return False, summary + "\n\n" + "\n".join(rejected) + "\n\n" + log
+
+        if not destination:
+            return True, "Comandi inviati (nessuna destinazione da verificare)\n\n" + log
+
+        ok, message = self.verify_mirroring(destination, sources)
+        return ok, message + "\n\n" + log
 
 
 # =============================================================================
