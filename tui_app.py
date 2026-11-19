@@ -22,6 +22,7 @@ from pathlib import Path
 
 from ssh_manager import SSHManager
 from config_parser import ConfigParser, SwitchConfig
+import dialetti
 
 
 # =============================================================================
@@ -599,17 +600,22 @@ class PortMirroringApp(App):
             return
         
         try:
-            # Get running config
+            # Parser nuovo a ogni lettura: niente sorgenti accumulate fra un ricarica e l'altro
+            self.parser = ConfigParser()
+
+            # Get running config, poi il dialetto (aggregator EdgeSwitch o Enterprise)
             running_config = self.ssh_manager.get_running_config()
-            self.parser.parse_running_config(running_config)
-            
-            # Get interface status
-            iface_status = self.ssh_manager.get_interfaces_status()
-            self.parser.parse_interfaces_status(iface_status)
-            
-            # Get port-channel
-            pc_brief = self.ssh_manager.get_port_channel_brief()
-            self.parser.parse_port_channel_brief(pc_brief)
+            self.ssh_manager.dialect = dialetti.rileva(running_config)
+
+            if self.ssh_manager.dialect == dialetti.ENTERPRISE:
+                self.parser.parse_running_config_enterprise(running_config)
+                self.parser.parse_interface_status_enterprise(self.ssh_manager.get_interfaces_status())
+                # la sessione non sta nella running-config
+                self.parser.set_monitor_session_enterprise(self.ssh_manager.get_monitor_session())
+            else:
+                self.parser.parse_running_config(running_config)
+                self.parser.parse_interfaces_status(self.ssh_manager.get_interfaces_status())
+                self.parser.parse_port_channel_brief(self.ssh_manager.get_port_channel_brief())
             
             # Update device info
             hostname = self.parser.config.system_info.hostname or self.device_ip
@@ -686,7 +692,7 @@ class PortMirroringApp(App):
         table = self.query_one("#sources-table", DataTable)
         table.clear()
         
-        for src in sorted(sources, key=lambda x: (int(x.split("/")[0]), int(x.split("/")[1]))):
+        for src in sorted(sources, key=dialetti.chiave_porta):
             iface = self.parser.config.interfaces.get(src)
             if iface:
                 state = "UP" if iface.link_state == "Up" else "DOWN"
@@ -762,6 +768,7 @@ class PortMirroringApp(App):
             commands=commands,
             device_ip=self.device_ip,
             username=self.ssh_manager.username or "admin",
+            dialect=self.ssh_manager.dialect,
             config=self.parser.config,
             description=f"Mirroring: {dest} <- {len(sources)} sources"
         )
@@ -790,7 +797,7 @@ class PortMirroringApp(App):
         
         self.notify("Applicazione in corso...", severity="information")
         
-        success, output = self.ssh_manager.apply_mirroring_config(commands)
+        success, output = self.ssh_manager.apply_mirroring_config(commands, dest, list(sources))
         
         summary = output.splitlines()[0] if output else ""
         if success:
@@ -803,15 +810,12 @@ class PortMirroringApp(App):
         self._load_config_sync()
     
     def _generate_commands(self, dest: str, sources: List[str]) -> List[str]:
-        """Generate mirroring commands."""
-        commands = [f"no monitor session 1"]
-        commands.append(f"monitor session 1 destination interface {dest}")
-        
-        for src in sorted(sources, key=lambda x: (int(x.split("/")[0]), int(x.split("/")[1]))):
-            commands.append(f"monitor session 1 source interface {src}")
-        
-        commands.append("monitor session 1 mode")
-        return commands
+        """Generate mirroring commands for the switch's CLI dialect (dialetti.py)."""
+        return dialetti.comandi_mirror(
+            self.ssh_manager.dialect, dest, sources,
+            attuale_dest=self.parser.get_mirroring_destination(),
+            attuali_sorgenti=self.parser.get_mirroring_sources(),
+        )
     
     def action_quit(self) -> None:
         """Quit application."""

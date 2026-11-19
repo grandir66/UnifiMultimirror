@@ -12,6 +12,16 @@ from typing import List, Optional
 from config_parser import SwitchConfig
 
 
+def _apertura(dialect: str) -> List[str]:
+    """Comandi per entrare in configurazione (dialetti.py)."""
+    return ["configure"] if dialect == "enterprise" else ["cli", "enable", "configure"]
+
+
+def _chiusura(dialect: str) -> List[str]:
+    """Comandi per uscire dalla configurazione e dalla sessione."""
+    return ["end", "exit"] if dialect == "enterprise" else ["exit", "exit", "exit"]
+
+
 class ScriptGenerator:
     """Generates reusable configuration scripts."""
     
@@ -41,7 +51,8 @@ class ScriptGenerator:
         username: str = "admin",
         port: int = 22,
         config: Optional[SwitchConfig] = None,
-        description: str = ""
+        description: str = "",
+        dialect: str = "edgeswitch"
     ) -> Path:
         """
         Generate a bash script to apply mirroring configuration.
@@ -73,15 +84,7 @@ class ScriptGenerator:
             model_info = config.system_info.description.split(",")[0]
         
         # Build commands block
-        cli_commands = [
-            "cli",
-            "enable",
-            "configure",
-            *commands,
-            "exit",
-            "exit",
-            "exit"
-        ]
+        cli_commands = [*_apertura(dialect), *commands, *_chiusura(dialect)]
         commands_block = "\n".join(cli_commands)
         
         # Build script content
@@ -191,7 +194,8 @@ fi
         device_ip: str,
         config: Optional[SwitchConfig] = None,
         description: str = "",
-        include_cli_prefix: bool = True
+        include_cli_prefix: bool = True,
+        dialect: str = "edgeswitch"
     ) -> Path:
         """
         Generate a text file with commands only.
@@ -234,11 +238,9 @@ fi
             "#",
             "# To apply these commands manually:",
             "#   1. SSH to the device",
-            "#   2. Enter: cli",
-            "#   3. Enter: enable", 
-            "#   4. Enter: configure",
-            "#   5. Execute the commands below",
-            "#   6. Enter: exit (3 times to logout)",
+            f"#   2. Enter: {' / '.join(_apertura(dialect))}",
+            "#   3. Execute the commands below",
+            f"#   4. Enter: {' / '.join(_chiusura(dialect))}",
             "#",
             "# ============================================================",
             "",
@@ -247,9 +249,7 @@ fi
         if include_cli_prefix:
             lines.extend([
                 "# === CLI Access Commands ===",
-                "cli",
-                "enable",
-                "configure",
+                *_apertura(dialect),
                 "",
                 "# === Mirroring Configuration ===",
             ])
@@ -260,9 +260,7 @@ fi
             lines.extend([
                 "",
                 "# === Exit Commands ===",
-                "exit",
-                "exit",
-                "exit",
+                *_chiusura(dialect),
             ])
         
         # Write file
@@ -282,7 +280,8 @@ fi
         username: str = "admin",
         port: int = 22,
         config: Optional[SwitchConfig] = None,
-        description: str = ""
+        description: str = "",
+        dialect: str = "edgeswitch"
     ) -> Path:
         """
         Generate a Python script to apply mirroring configuration.
@@ -303,7 +302,7 @@ fi
             device_info = f"{config.system_info.hostname} ({device_ip})"
         
         # Format commands as Python list
-        commands_str = ",\n        ".join([f'"{cmd}"' for cmd in commands])
+        commands_str = ",\n    ".join([f'"{cmd}"' for cmd in [*_apertura(dialect), *commands, *_chiusura(dialect)]])
         
         script_content = f'''#!/usr/bin/env python3
 """
@@ -330,13 +329,7 @@ SSH_PORT = {port}
 
 # Commands to execute
 COMMANDS = [
-    "cli",
-    "enable",
-    "configure",
     {commands_str},
-    "exit",
-    "exit",
-    "exit",
 ]
 
 
@@ -439,7 +432,8 @@ if __name__ == "__main__":
         username: str = "admin",
         port: int = 22,
         config: Optional[SwitchConfig] = None,
-        description: str = ""
+        description: str = "",
+        dialect: str = "edgeswitch"
     ) -> dict:
         """
         Generate all script formats.
@@ -448,15 +442,15 @@ if __name__ == "__main__":
             Dict with paths: {'bash': Path, 'python': Path, 'commands': Path}
         """
         bash_path = self.generate_bash_script(
-            commands, device_ip, username, port, config, description
+            commands, device_ip, username, port, config, description, dialect
         )
         
         python_path = self.generate_python_script(
-            commands, device_ip, username, port, config, description
+            commands, device_ip, username, port, config, description, dialect
         )
         
         cmd_path = self.generate_command_file(
-            commands, device_ip, config, description
+            commands, device_ip, config, description, dialect=dialect
         )
         
         return {

@@ -39,7 +39,8 @@ fuori da questo repo, che è pubblico (vedi `config.json` e l'inventario di Zabb
   `monitor session 1 destination interface <porta> [network]`; per togliere `no monitor session 1 source|destination …`.
   Non esistono `monitor session 1 mode` né `no monitor session 1` da soli, né `show interfaces status all`
   (qui `show interface status`). Lo strumento oggi parla solo il dialetto EdgeSwitch: per l'Enterprise va
-  aggiunto il dialetto (rilevarlo dal prompt o dai nomi delle porte).
+  aggiunto il dialetto (rilevarlo dal prompt o dai nomi delle porte). **Fatto il 20/11** (`dialetti.py`), provato in
+  lettura sull'ENT8: porte, sessione e verifica corrette.
 - **`network`** sulla destinazione: la porta riceve la copia e continua a far passare il traffico normale (la
   gestione del LECS). Senza, la destinazione rischia di isolare il LECS.
 - **Trappola (20/11)**: su questa CLI `comando ?` seguito da Invio **esegue** il comando se è completo; così la

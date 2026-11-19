@@ -105,6 +105,13 @@ Quando selezioni "Genera Script", vengono creati 3 file nella cartella `generate
 ./generated/mirror_config_20260205_143000.sh "mypassword"
 ```
 
+## Switch supportati
+
+- **EdgeSwitch** (es. USW-Pro-Aggregation): porte `0/x`, comandi sotto.
+- **USW Enterprise** (es. Enterprise 8 PoE, firmware 7.6): porte `tw1-8`/`te1-2`, riconosciuto da solo; la
+  destinazione si imposta in modalità `network` (la porta continua a passare il traffico normale) e la sessione
+  si verifica con `show monitor session 1`. Solo dalla TUI.
+
 ## Comandi CLI EdgeSwitch
 
 Il tool genera automaticamente i seguenti comandi:

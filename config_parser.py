@@ -447,11 +447,82 @@ class ConfigParser:
     # =========================================================================
     
     def get_physical_ports(self) -> List[str]:
-        """Get list of physical port IDs (0/x format)."""
+        """Physical port IDs: '0/x' (EdgeSwitch) or 'tw8'/'te2' (Enterprise)."""
+        from dialetti import chiave_porta
         return sorted(
-            [p for p in self.config.interfaces.keys() if p.startswith("0/")],
-            key=lambda x: int(x.split("/")[1])
+            [p for p in self.config.interfaces.keys()
+             if p.startswith("0/") or re.match(r"^(gi|tw|te)\d+$", p)],
+            key=chiave_porta
         )
+
+    # =========================================================================
+    # Dialetto Enterprise (USW Enterprise, CLI di tipo Cisco) — vedi dialetti.py
+    # =========================================================================
+
+    def parse_running_config_enterprise(self, config_text: str) -> None:
+        """Interfacce, descrizioni, VLAN e hostname dalla running-config Enterprise."""
+        from dialetti import nome_breve
+        current: Optional[InterfaceConfig] = None
+        for line in config_text.split("\n"):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            m = re.match(r"^interface\s+(TwoPointFiveGigabitEthernet\d+|TenGigabitEthernet\d+|GigabitEthernet\d+)$",
+                         stripped, re.I)
+            if m:
+                pid = nome_breve(m.group(1))
+                current = self.config.interfaces.get(pid) or InterfaceConfig(port_id=pid)
+                self.config.interfaces[pid] = current
+                continue
+            if stripped.startswith("interface ") or stripped == "!":
+                current = None
+                continue
+            if stripped.startswith("hostname "):
+                self.config.system_info.hostname = stripped.split(None, 1)[1]
+                continue
+            if current is None:
+                continue
+            if stripped.startswith("description "):
+                current.description = stripped.split(None, 1)[1].strip('"')
+            elif stripped == "shutdown":
+                current.is_shutdown = True
+            else:
+                vm = re.match(r"^switchport general allowed vlan add (\S+)\s+(tagged|untagged)$", stripped)
+                if vm:
+                    vlans = self.parse_vlan_list(vm.group(1))
+                    if vm.group(2) == "tagged":
+                        current.tagged_vlans.extend(v for v in vlans if v not in current.tagged_vlans)
+                    else:
+                        current.untagged_vlans.extend(v for v in vlans if v not in current.untagged_vlans)
+                        if vlans:
+                            current.pvid = vlans[0]
+                pm = re.match(r"^switchport (?:general |access )?pvid (\d+)$", stripped)
+                if pm:
+                    current.pvid = int(pm.group(1))
+
+    def parse_interface_status_enterprise(self, status_text: str) -> None:
+        """'show interface status' Enterprise: tw1 2.5G-Copper Full 1000 Enabled Off Up ..."""
+        for line in status_text.split("\n"):
+            m = re.match(r"^((?:gi|tw|te)\d+)\s+(\S+)\s+(\S+)\s+(\S+)\s+\S+\s+\S+\s+(Up|Down)\b", line.strip())
+            if not m:
+                continue
+            pid = m.group(1)
+            iface = self.config.interfaces.get(pid) or InterfaceConfig(port_id=pid)
+            self.config.interfaces[pid] = iface
+            iface.media_type = m.group(2)
+            iface.link_state = m.group(5)
+            if m.group(5) == "Up" and m.group(4) != "--":
+                iface.speed = f"{m.group(4)} {m.group(3)}"
+
+    def set_monitor_session_enterprise(self, show_text: str, session_id: int = 1) -> None:
+        """Sessione di mirror dall'uscita di 'show monitor session 1'."""
+        from dialetti import leggi_sessione
+        dest, sources, exists = leggi_sessione(show_text)
+        if exists:
+            self.config.monitor_sessions[session_id] = MonitorSession(
+                session_id=session_id, destination=dest or "", sources=sources, mode="enabled")
+        else:
+            self.config.monitor_sessions.pop(session_id, None)
     
     def get_lag_ports(self) -> List[str]:
         """Get list of LAG port IDs (3/x format)."""

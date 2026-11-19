@@ -30,6 +30,8 @@ class SSHManager:
         self.username: str = ""
         self.port: int = 22
         self.timeout: int = 10
+        # Dialetto CLI (dialetti.py): lo imposta chi legge la running-config
+        self.dialect: str = "edgeswitch"
         
         # Settings
         self.command_delay: float = 1.0
@@ -259,8 +261,8 @@ class SSHManager:
                 response += data
                 last_data_time = time.time()
                 
-                # Handle --More-- prompt
-                if '--More--' in data or '--more--' in data.lower():
+                # Handle pager prompts: EdgeSwitch «--More--», Enterprise «More: <space>, Quit: q»
+                if '--more--' in data.lower() or 'more: <space>' in data.lower():
                     self.shell.send(" ")  # Space to continue
                     time.sleep(0.2)
                     continue
@@ -296,7 +298,13 @@ class SSHManager:
     
     def get_interfaces_status(self) -> str:
         """Retrieve interface status from switch."""
+        if self.dialect == "enterprise":
+            return self._send_command_long("show interface status", timeout=15.0)
         return self._send_command_long("show interfaces status all", timeout=15.0)
+
+    def get_monitor_session(self, session_id: int = 1) -> str:
+        """Enterprise: la sessione non sta nella running-config, si legge da qui."""
+        return self._send_command_long(f"show monitor session {session_id}", timeout=8.0)
     
     def get_port_channel_brief(self) -> str:
         """Retrieve port-channel/LAG summary from switch."""
@@ -309,7 +317,7 @@ class SSHManager:
     
     def exit_config_mode(self) -> bool:
         """Exit configuration mode."""
-        self._send_command("exit", wait_prompt=False)
+        self._send_command("end" if self.dialect == "enterprise" else "exit", wait_prompt=False)
         return True
     
     # Righe con cui la CLI EdgeSwitch/UniFi rifiuta un comando.
@@ -353,6 +361,32 @@ class SSHManager:
         """
         from config_parser import ConfigParser  # local: avoids a hard dependency at import
 
+        if self.dialect == "enterprise":
+            from dialetti import leggi_sessione
+            try:
+                testo = self.get_monitor_session(session_id)
+            except Exception as e:
+                return False, f"Verifica non eseguita: lettura della sessione fallita ({e})"
+            if "Session" not in testo:
+                return False, "Verifica non eseguita: 'show monitor session' non ha risposto"
+            dest, lette, esiste = leggi_sessione(testo)
+            problemi = []
+            if not esiste:
+                problemi.append(f"sullo switch non c'è la monitor session {session_id}")
+            if dest != destination:
+                problemi.append(f"destinazione letta {dest or '(nessuna)'}, attesa {destination}")
+            mancanti = sorted(set(sources) - set(lette))
+            in_piu = sorted(set(lette) - set(sources))
+            if mancanti:
+                problemi.append("sorgenti mancanti: " + ", ".join(mancanti))
+            if in_piu:
+                problemi.append("sorgenti in più: " + ", ".join(in_piu))
+            if "network port" not in testo:
+                problemi.append("la destinazione non è in modalità network (l'apparato collegato può restare isolato)")
+            if problemi:
+                return False, "Verifica fallita: " + "; ".join(problemi)
+            return True, f"Verificato sullo switch: {destination} <- {len(set(sources))} sorgenti, destinazione network"
+
         try:
             running = self.get_running_config()
         except Exception as e:
@@ -387,7 +421,9 @@ class SSHManager:
             return False, "Verifica fallita: " + "; ".join(problems)
         return True, f"Verificato sullo switch: {destination} <- {len(wanted)} sorgenti, sessione attiva"
 
-    def apply_mirroring_config(self, commands: List[str]) -> Tuple[bool, str]:
+    def apply_mirroring_config(self, commands: List[str],
+                               destination: Optional[str] = None,
+                               sources: Optional[List[str]] = None) -> Tuple[bool, str]:
         """
         Apply mirroring configuration commands, then verify them on the switch.
 
@@ -399,14 +435,16 @@ class SSHManager:
             command AND the running-config re-read afterwards matches. The first
             line of output is always a one-line summary.
         """
-        destination = ""
-        sources: List[str] = []
-        for cmd in commands:
-            parts = cmd.split()
-            if cmd.startswith("monitor session") and "destination interface" in cmd:
-                destination = parts[-1]
-            elif cmd.startswith("monitor session") and "source interface" in cmd:
-                sources.append(parts[-1])
+        if destination is None or sources is None:
+            # EdgeSwitch: i valori attesi si ricavano dai comandi (porta = ultima parola)
+            destination = ""
+            sources = []
+            for cmd in commands:
+                parts = cmd.split()
+                if cmd.startswith("monitor session") and "destination interface" in cmd:
+                    destination = parts[-1]
+                elif cmd.startswith("monitor session") and "source interface" in cmd:
+                    sources.append(parts[-1])
 
         try:
             if not self.enter_config_mode():

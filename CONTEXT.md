@@ -20,6 +20,9 @@ l'Enterprise (oggi dietro la UCG, non raggiungibile). Indirizzi fuori dal repo; 
   `show running-config`, `show interfaces status all`, `show port-channel brief`.
 - `config_parser.py`: interpreta quelle uscite (porte, LAG, VLAN, sessione monitor).
 - `script_generator.py`: scrive in `generated/` `.sh` (sshpass), `.py`, `.txt`.
+- `dialetti.py` (20/11): EdgeSwitch (aggregator, porte `0/x`) ed Enterprise (USW Enterprise, CLI tipo Cisco,
+  porte `tw`/`te`, sessione letta da `show monitor session 1`, destinazione `network`). Lo usa la TUI;
+  `main.py`/`ui.py` restano EdgeSwitch.
 - `ssh_script.py` + `setup_and_run.sh` + `comandi.txt`: esecutore SSH generico più vecchio,
   è quello per cui esiste il venv `ssh_env/` (solo paramiko).
 
@@ -42,3 +45,6 @@ una riga `source interface` per porta, `monitor session 1 mode`.
 - Host key SSH accettata senza verifica (`AutoAddPolicy`).
 - Repo pubblico: niente IP, nomi di clienti o script generati nei commit (`generated/*` è
   ignorato; storia controllata il 19/11, pulita).
+- Enterprise: `comando ?` + Invio **esegue** il comando se completo (20/11): lo strumento non usa mai `?`.
+- Credenziali degli switch di un sito: Devices → «Device Updates & Settings» → «Device SSH Settings» (non la
+  pagina Gestione, che è la console). Enterprise del LAB: vault `da-lab-switch-accessi.md`, via VPN LAB-IT.
