@@ -24,5 +24,5 @@ fuori da questo repo, che è pubblico (vedi `config.json` e l'inventario di Zabb
       `monitor session 1 mode` (nomi delle porte da confermare con `show interfaces status all`).
       19/11: credenziale nel vault (`da-lab-switch-accessi.md`, righe 3 e 6 uguali, utente admin). **Lo switch la
       rifiuta** (dropbear, accetta publickey e password): due tentativi, poi fermo. Da verificare con Riccardo la
-      «Device Authentication» del sito LAB. Lo strumento ora usa solo la password (niente chiavi né agente).
+      «Device Authentication» del sito LAB (sta in Settings → UCG Fiber → Gestione, non in System → Advanced). Lo strumento ora usa solo la password (niente chiavi né agente).
 - [ ] Da decidere: scelta dello switch all'avvio (oggi `config.json` ne ricorda uno solo).
