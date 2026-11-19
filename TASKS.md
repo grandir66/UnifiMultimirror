@@ -22,4 +22,7 @@ fuori da questo repo, che è pubblico (vedi `config.json` e l'inventario di Zabb
       **Riccardo, 19/11: sorgente solo l'uplink SFP+ 2** (porta 10). Comandi attesi: `no monitor session 1`,
       `monitor session 1 destination interface 0/8`, `monitor session 1 source interface 0/10`,
       `monitor session 1 mode` (nomi delle porte da confermare con `show interfaces status all`).
+      19/11: credenziale nel vault (`da-lab-switch-accessi.md`, righe 3 e 6 uguali, utente admin). **Lo switch la
+      rifiuta** (dropbear, accetta publickey e password): due tentativi, poi fermo. Da verificare con Riccardo la
+      «Device Authentication» del sito LAB. Lo strumento ora usa solo la password (niente chiavi né agente).
 - [ ] Da decidere: scelta dello switch all'avvio (oggi `config.json` ne ricorda uno solo).

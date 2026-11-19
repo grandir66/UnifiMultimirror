@@ -159,7 +159,11 @@ class SSHManager:
                 port=self.port,
                 username=self.username,
                 password=self._password,
-                timeout=self.timeout
+                timeout=self.timeout,
+                # Solo la password: con chiavi e agente lo switch chiude dopo troppi
+                # tentativi e la password non arriva mai (SW-LAB-ENT8, 19/11/2026).
+                look_for_keys=False,
+                allow_agent=False,
             )
             
             # Open interactive shell
