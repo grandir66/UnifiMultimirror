@@ -12,4 +12,5 @@ fuori da questo repo, che è pubblico (vedi `config.json` e l'inventario di Zabb
       sorgenti. SSH raggiungibile il 19/11; la CLI (`monitor session`) non è ancora provata.
 - [ ] Enterprise: da fare quando sarà raggiungibile (oggi dietro la UCG).
       Riccardo, 19/11: pensare a una VPN fra le due reti; proposta in `DA-Infra/TASKS.md` (disegno del LAB).
+      19/11: scelta la VPN WireGuard della UCG del LAB (server LAB-IT, creato); dettagli in `DA-Infra/TASKS.md`.
 - [ ] Da decidere: scelta dello switch all'avvio (oggi `config.json` ne ricorda uno solo).
