@@ -7,8 +7,9 @@
 Imposta il **port mirroring di più porte sorgente** sugli switch UniFi/EdgeSwitch via
 SSH: il controller UniFi ne prevede una sola. Remote pubblico
 `github.com/grandir66/UnifiMultimirror`. Stato: **manutenzione** (resta, è usato).
-Uso vero: lo switch di aggregazione del CED (USW-Pro-Aggregation, indirizzo in `config.json`), destinazione 0/3,
-35 sorgenti nell'ultimo script generato (07/05/2026).
+Switch interessati (Riccardo, 19/11): l'aggregator (USW-Pro-Aggregation; script pronto del
+07/05/2026, destinazione 0/3, 35 sorgenti), il 48 PoE del CED (niente di pronto) e
+l'Enterprise (oggi dietro la UCG, non raggiungibile). Indirizzi fuori dal repo; stato in `TASKS.md`.
 
 ## 2. Come è fatto
 
