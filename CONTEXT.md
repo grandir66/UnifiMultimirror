@@ -1,14 +1,40 @@
-# CONTEXT.md — Script_Ubiquiti
+# CONTEXT.md — Script_Ubiquiti (UnifiMultimirror)
 
-> Bozza del 20/10/2026 ricavata dalla scheda del censimento (`docs/scheda-mappa.md`)
-> nel lavoro `riorg-contesto-agenti`: chi lavora qui la completa sul modello
-> `~/Progetti/_template/CONTEXT-TEMPLATE.md` (architettura, trappole, decisioni).
+> Completato il 19/11/2026 da un'analisi del codice (nessuna prova sullo switch).
 
 ## 1. Cos'è e perché esiste
 
-Mirroring multiplo delle porte UniFi: configurazione non prevista di default dal controller.
+Imposta il **port mirroring di più porte sorgente** sugli switch UniFi/EdgeSwitch via
+SSH: il controller UniFi ne prevede una sola. Remote pubblico
+`github.com/grandir66/UnifiMultimirror`. Stato: **manutenzione** (resta, è usato).
+Uso vero: lo switch di aggregazione del CED (USW-Pro-Aggregation, indirizzo in `config.json`), destinazione 0/3,
+35 sorgenti nell'ultimo script generato (07/05/2026).
 
-## 2. Stato — dal censimento, 2026-10-20
+## 2. Come è fatto
 
-- Stato: **manutenzione**.
-- Nota: Decisione del: resta, utilissimo anche se non sviluppato.
+- `tui_app.py` (Textual): l'interfaccia consigliata. Login, tabella porte, scelta
+  sorgenti/destinazione, genera script, applica (F5).
+- `main.py` + `ui.py` (Rich): la stessa cosa a menu numerati, doppione della TUI.
+- `ssh_manager.py`: paramiko `invoke_shell` → `cli` → `enable` → `configure`; lettura di
+  `show running-config`, `show interfaces status all`, `show port-channel brief`.
+- `config_parser.py`: interpreta quelle uscite (porte, LAG, VLAN, sessione monitor).
+- `script_generator.py`: scrive in `generated/` `.sh` (sshpass), `.py`, `.txt`.
+- `ssh_script.py` + `setup_and_run.sh` + `comandi.txt`: esecutore SSH generico più vecchio,
+  è quello per cui esiste il venv `ssh_env/` (solo paramiko).
+
+Comandi applicati: `no monitor session 1`, `monitor session 1 destination interface X`,
+una riga `source interface` per porta, `monitor session 1 mode`.
+
+## 3. Trappole
+
+- **Il controller UniFi sovrascrive** la configurazione CLI al provisioning o al riavvio:
+  dopo ogni provisioning va riapplicata (con gli script in `generated/`).
+- **«Applicato» non vuol dire applicato**: `apply_mirroring_config` risponde successo se non
+  c'è eccezione, senza leggere gli errori dello switch né rileggere la sessione monitor.
+- `ssh_env/` non ha `textual`/`rich`: la TUI non parte da lì, serve
+  `pip install -r requirements.txt` in un venv a parte.
+- `config.json` + `.ssh_key` (git-ignored): password cifrata con chiave nello stesso posto,
+  è offuscamento. `old_config.json` (git-ignored) ha la password **in chiaro**: da togliere.
+- Host key SSH accettata senza verifica (`AutoAddPolicy`).
+- Repo pubblico: niente IP, nomi di clienti o script generati nei commit (`generated/*` è
+  ignorato; storia controllata il 19/11, pulita).
